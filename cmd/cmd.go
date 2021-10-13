@@ -15,6 +15,8 @@ var (
 	fromArgs bool
 	duration string
 
+	show bool
+
 	rootCmd = &cobra.Command{
 		Use:   "tapi",
 		Short: "Tapi is a simple api built to test testing",
@@ -27,10 +29,18 @@ func init() {
 	rootCmd.Flags().BoolVarP(&fromPipe, "pipe", "p", false, "if the data to store is being piped here")
 	rootCmd.Flags().BoolVarP(&fromFile, "file", "f", false, "file to store")
 	rootCmd.Flags().BoolVarP(&fromArgs, "data", "d", false, "data to store")
-	rootCmd.Flags().StringVarP(&duration, "ttl", "t", "10m", "amount of time you'd like the data to be stored (default: 10m)")
+	rootCmd.Flags().StringVarP(&duration, "ttl", "t", "10m", "amount of time you'd like the data to be stored")
+
+	rootCmd.Flags().BoolVarP(&show, "show", "s", false, "view stored data")
 }
 
 func rootRun(cmd *cobra.Command, args []string) {
+	kvs := store.NewKVSStore()
+	if show {
+		kvs.Show()
+		return
+	}
+
 	if fromPipe && fromFile && fromArgs ||
 		fromPipe && fromFile ||
 		fromPipe && fromArgs ||
@@ -53,15 +63,18 @@ func rootRun(cmd *cobra.Command, args []string) {
 		cmd.Usage()
 		os.Exit(0)
 	}
-	if !regexp.MustCompile(`\d+[smdh]`).MatchString(duration) {
+	if !regexp.MustCompile(`^\d+[smdh]$`).MatchString(duration) {
 		fmt.Fprintln(os.Stderr, "[!!] ttl must be in the format number(s) letter. e.g. 10s, 20d, 4m")
 	}
 
-	store.StoreStrategy{
+	kvs.Strategy = store.StoreStrategy{
 		Pipe: fromPipe,
 		File: fromFile,
 		Args: fromArgs,
-	}.Store(duration, args)
+	}
+
+	kvs.Save(duration, args)
+	fmt.Println("[*] Data Stored!")
 }
 
 func Execute() {
